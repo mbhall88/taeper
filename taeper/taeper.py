@@ -26,11 +26,11 @@ def convert2epoch(t):
 
 # extract raw signal start time and duration, experiment start time, and
 # sampling rate
-def extract_time_fields(file_):
+def extract_time_fields(filepath):
     """Extracts the time from a given fast5 file.
 
     Args:
-        file_ (str): full path to fast5 file.
+        filepath (str): full path to fast5 file.
 
     Returns:
         fields (dict): a dictionary containing the read start time,
@@ -38,49 +38,16 @@ def extract_time_fields(file_):
         channel.
 
     """
-    names = ['raw', 'unique', 'tracking_id', 'channel_id', 'reads']
-    keys = ['start_time', 'duration', 'exp_start_time', 'sampling_rate']
-    fields = {key: [] for key in keys}
+    fast5_info = Fast5.FastInfo(filepath)
+    exp_start_time = fast5_info.get_tracking_id()['exp_start_time']
+    sampling_rate = fast5_info.get_channel_info()['sampling_rate']
 
-    def get_attrs(name, obj):
-        """Extracts the read start time, duration, experiment start time and
-        sampling rate.
-        """
-        for key, val in obj.attrs.iteritems():
-            if key.lower() in keys:
-                try:
-                    fields[key].append(float(val))
-                # latest minknow encodes exp_start_time as a string
-                except ValueError:
-                    fields[key].append(convert2epoch(str(val)))
-
-    def get_attrs_thorough(name, obj):
-        """Extracts the read start time, duration, experiment start time and
-        sampling rate. Designed to handle some older format fast5 files.
-        """
-        for key, val in obj.attrs.iteritems():
-            if key.lower() in keys and any(n in name.lower() for n in names):
-                fields[key].append(float(val))
-
-    with h5.File(file_, 'r') as f:
-        #  f.visititems(print_attrs)
-        for name in f:
-            if name.lower().startswith(('raw', 'unique')):
-                # walk down group and apply function to each subgroup
-                f[name].visititems(get_attrs)
-
-        if not all(fields.values()):
-            for name in f:
-                f[name].visititems(get_attrs_thorough)
-
-        assert all(fields.values()), "Missing expected fields: {}".format(
-            fields)
-
-        # make sure all elements (if more than one) are identical
-        for k, v in fields.iteritems():
-            assert v.count(v[0]) == len(v), \
-                "{0} has multiple elements that dont match: {1}".format(k, v)
-            fields[k] = v[0]
+    fields = {
+        'exp_start_time': exp_start_time,
+        'sampling_rate': sampling_rate,
+        'duration': fast5_info.read_info[0].duration,
+        'start_time': fast5_info.read_info[0].start_time
+    }
 
     return fields
 
@@ -103,20 +70,20 @@ def calculate_timestamp(info):
     return exp_start + finish
 
 
-def associate_time(file_):
+def associate_time(filepath):
     """Associates the seconds elapsed between the start of exp. and read
     finishing to the path for that read.
 
     Args:
-        file_ (str): path to fast5 file.
+        filepath (str): path to fast5 file.
 
     Returns:
         tuple(float, str): tuple representing the time in seconds and the path
         to the file.
 
     """
-    t = calculate_timestamp(extract_time_fields(file_))
-    return (t, file_)
+    t = calculate_timestamp(extract_time_fields(filepath))
+    return (t, filepath)
 
 
 def scantree(path):
