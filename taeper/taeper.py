@@ -9,8 +9,10 @@ import sys
 import argparse
 import shutil
 import time
-from datetime import datetime, date
+from datetime import datetime
 import pickle
+from typing import Tuple, Generator, List
+
 
 try:
     from os import scandir
@@ -18,24 +20,21 @@ except ImportError:
     from scandir import scandir
 
 
-def convert2epoch(t):
+def _zulu_to_epoch_time(time: str) -> float:
     """Auxiliary function to parse Zulu time into epoch time"""
     epoch = datetime(1970, 1, 1)
-    return (datetime.strptime(t, "%Y-%m-%dT%H:%M:%SZ") - epoch).total_seconds()
+    time_as_date = datetime.strptime(time, "%Y-%m-%dT%H:%M:%SZ")
+    return (time_as_date - epoch).total_seconds()
 
 
-# extract raw signal start time and duration, experiment start time, and
-# sampling rate
 def extract_time_fields(filepath: str) -> dict:
     """Extracts the time from a given fast5 file.
 
-    Args:
-        filepath (str): full path to fast5 file.
+    :param filepath: full path to fast5 file.
 
-    Returns:
-        fields (dict): a dictionary containing the read start time,
-        experiment start time, duration of read, and sampling rate of the
-        channel.
+    :returns fields: a dictionary containing the read start time,
+    experiment start time, duration of read, and sampling rate of the
+    channel.
 
     """
     fast5_info = Fast5.Fast5Info(filepath)
@@ -44,26 +43,21 @@ def extract_time_fields(filepath: str) -> dict:
     sampling_rate = float(fast5_file.get_channel_info()['sampling_rate'])
 
     fields = {
-        'exp_start_time': convert2epoch(exp_start_time),
+        'exp_start_time': _zulu_to_epoch_time(exp_start_time),
         'sampling_rate': sampling_rate,
         'duration': float(fast5_info.read_info[0].duration),
         'start_time': float(fast5_info.read_info[0].start_time)
     }
-
     return fields
 
 
-# create field associated with each read that is seconds since first read
-# scale this by scaling factor
 def calculate_timestamp(info: dict) -> float:
     """Calculates the time when the read finished sequencing.
 
-    Args:
-        info: experiment start time, read start time, duration, and
-        sampling rate.
+    :param info: experiment start time, read start time, duration, and
+    sampling rate.
 
-    Returns:
-        Seconds between experiment start and read finishing.
+    :returns Seconds between experiment start and read finishing.
     """
     exp_start = info['exp_start_time']
     # adjust for the sampling rate of the channel
@@ -71,51 +65,47 @@ def calculate_timestamp(info: dict) -> float:
     return exp_start + finish
 
 
-def associate_time(filepath):
+def associate_time(filepath: str) -> Tuple[float, str]:
     """Associates the seconds elapsed between the start of exp. and read
     finishing to the path for that read.
 
-    Args:
-        filepath (str): path to fast5 file.
+    :param filepath: path to fast5 file.
 
-    Returns:
-        tuple(float, str): tuple representing the time in seconds and the path
+    :returns tuple representing the time in seconds and the path
         to the file.
 
     """
-    t = calculate_timestamp(extract_time_fields(filepath))
-    return (t, filepath)
+    timestamp = calculate_timestamp(extract_time_fields(filepath))
+    return timestamp, filepath
 
 
-def scantree(path):
+def scantree(path: str) -> Generator:
     """Recursively yield DirEntry objects for given directory."""
     for entry in scandir(path):
         if entry.is_dir(follow_symlinks=False):
-            for entry in scantree(entry.path):
-                yield entry
+            for dir_entry in scantree(entry.path):
+                yield dir_entry
         else:
             yield entry
 
 
-def generate_ordered_list(reads_dir, fail=True):
+def generate_ordered_list(reads_dir: str,
+                          fail=True) -> List[Tuple[float, str]]:
     """Returns a list that is sorted in ascending order by time.
     All timepoints are relative to the first entry which is time 0.
 
-    Args:
-        reads_dir (str): Path to directory holding fast5 reads.
-        fail (bool): Whether to transfer files from the fail folder too.
+    :param reads_dir: Path to directory holding fast5 reads.
+    :param fail: Whether to transfer files from the fail folder too.
 
-    Returns:
-        sorted_centred_staging_list (list[tuple(float, str)]): A list of
-        tuples of time and path to file.
+    :returns sorted_centred_staging_list (list[tuple(float, str)]): A list of
+    tuples of time and path to file.
 
     """
-
-    # function to make all times relative to first time which is 0.
-    def _centre(xs):
-        return np.array((
-            list(map(lambda x: (float(x[0] + (0 - xs[0][0])), x[1]), xs)))
-        )
+    def _centre(sorted_list):
+        """function to make all times relative to first time which is 0."""
+        centred_map = map(lambda x: (float(x[0] + (0 - sorted_list[0][0])),
+                                     x[1]), sorted_list)
+        return np.array(list(centred_map))
 
     staging_list = []
     files_not_processed = []
@@ -148,6 +138,10 @@ def generate_ordered_list(reads_dir, fail=True):
 
 
 def write_failed_files(files):
+    """
+
+    :param files:
+    """
     with open('files_not_processed.txt', 'w') as fo:
         fo.write("filepath\terror_message\n")
         for entry in files:

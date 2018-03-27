@@ -9,6 +9,7 @@ name = "pypi"
 
 "ont-fast5-api" = "*"
 "e1839a8" = {path = ".", editable = true}
+numpy = "*"
 
 
 [dev-packages]
