@@ -2,7 +2,7 @@
 
 """Main module."""
 from __future__ import print_function
-import h5py as h5
+from ont_fast5_api import fast5_file as Fast5
 import numpy as np
 import os
 import sys
@@ -249,6 +249,8 @@ def check_positive(val):
 
 
 def main(args):
+    # example use of fast5 api
+    # f5 = Fast5.Fast5File(fname)
     if args.input_dir:
         centred_list = generate_ordered_list(args.input_dir, args.fail)
         write_pickle(centred_list)
