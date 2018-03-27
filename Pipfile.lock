@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "83bf959252ac1aa6c1994b552aafcf38f037bfd530509f4f0b8f5f02f618b60e"
+            "sha256": "a6ba4508a37f882c565c5a1497837f460908141d67d1dbd2c230d706af322fb0"
         },
         "host-environment-markers": {
             "implementation_name": "cpython",
@@ -27,6 +27,10 @@
         ]
     },
     "default": {
+        "e1839a8": {
+            "editable": true,
+            "path": "."
+        },
         "h5py": {
             "hashes": [
                 "sha256:562045c57a2e47aca9c716ac8cd64448d4897c0f5fe456ab5a34b17c8b3907cb",

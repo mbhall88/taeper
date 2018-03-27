@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """Main module."""
-from __future__ import print_function
+from __future__ import print_function, division
 from ont_fast5_api import fast5_file as Fast5
 import numpy as np
 import os
@@ -26,7 +26,7 @@ def convert2epoch(t):
 
 # extract raw signal start time and duration, experiment start time, and
 # sampling rate
-def extract_time_fields(filepath):
+def extract_time_fields(filepath: str) -> dict:
     """Extracts the time from a given fast5 file.
 
     Args:
@@ -38,15 +38,16 @@ def extract_time_fields(filepath):
         channel.
 
     """
-    fast5_info = Fast5.FastInfo(filepath)
-    exp_start_time = fast5_info.get_tracking_id()['exp_start_time']
-    sampling_rate = fast5_info.get_channel_info()['sampling_rate']
+    fast5_info = Fast5.Fast5Info(filepath)
+    fast5_file = Fast5.Fast5File(filepath)
+    exp_start_time = fast5_file.get_tracking_id()['exp_start_time']
+    sampling_rate = float(fast5_file.get_channel_info()['sampling_rate'])
 
     fields = {
-        'exp_start_time': exp_start_time,
+        'exp_start_time': convert2epoch(exp_start_time),
         'sampling_rate': sampling_rate,
-        'duration': fast5_info.read_info[0].duration,
-        'start_time': fast5_info.read_info[0].start_time
+        'duration': float(fast5_info.read_info[0].duration),
+        'start_time': float(fast5_info.read_info[0].start_time)
     }
 
     return fields
@@ -54,15 +55,15 @@ def extract_time_fields(filepath):
 
 # create field associated with each read that is seconds since first read
 # scale this by scaling factor
-def calculate_timestamp(info):
+def calculate_timestamp(info: dict) -> float:
     """Calculates the time when the read finished sequencing.
 
     Args:
-        info (dict): experiment start time, read start time, duration, and
+        info: experiment start time, read start time, duration, and
         sampling rate.
 
     Returns:
-        (float): seconds between experiment start and read finishing.
+        Seconds between experiment start and read finishing.
     """
     exp_start = info['exp_start_time']
     # adjust for the sampling rate of the channel
@@ -112,7 +113,9 @@ def generate_ordered_list(reads_dir, fail=True):
 
     # function to make all times relative to first time which is 0.
     def _centre(xs):
-        return map(lambda x: (float(x[0] + (0 - xs[0][0])), x[1]), xs)
+        return np.array((
+            list(map(lambda x: (float(x[0] + (0 - xs[0][0])), x[1]), xs)))
+        )
 
     staging_list = []
     files_not_processed = []
@@ -220,7 +223,8 @@ def main(args):
     # f5 = Fast5.Fast5File(fname)
     if args.input_dir:
         centred_list = generate_ordered_list(args.input_dir, args.fail)
-        write_pickle(centred_list)
+        np.save('file_order.npy', centred_list)
+        # write_pickle(centred_list)
     else:
         centred_list = open_pickle(args.input_pickle)
 
@@ -232,10 +236,11 @@ def main(args):
 
     # this will be subtracted from the time for each read
     prev_time = 0
-    for i, read in enumerate(centred_list):
+    for i, (delay, filepath) in enumerate(centred_list):
+        delay = float(delay)
         perc = round(float(i) / len(centred_list) * 100, 1)
-        read_deposit(read[0], prev_time, read[1], args.output_dir, args.scale)
-        prev_time = read[0]
+        read_deposit(delay, prev_time, filepath, args.output_dir, args.scale)
+        prev_time = delay
         print(">>> {}% of files transfered...".format(perc), end='\r')
         sys.stdout.flush()
     print("ALL READS DEPOSITED")
