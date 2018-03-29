@@ -47,32 +47,21 @@ def extract_time_fields(filepath: str) -> dict:
     return fields
 
 
-def calculate_timestamp(info: dict) -> float:
+def calculate_timestamp(filepath: str) -> float:
     """Calculates the time when the read finished sequencing.
 
-    :param info: experiment start time, read start time, duration, and
-    sampling rate.
+    :param filepath: full path to fast5 file
 
     :returns Seconds between experiment start and read finishing.
     """
-    exp_start = info['exp_start_time']
+    time_info = extract_time_fields(filepath)
+    experiment_start = time_info['exp_start_time']
+
     # adjust for the sampling rate of the channel
-    finish = (info['start_time'] + info['duration']) / info['sampling_rate']
-    return exp_start + finish
+    sample_length = time_info['start_time'] + time_info['duration']
+    finish = sample_length / time_info['sampling_rate']
 
-
-def associate_time(filepath: str) -> Tuple[float, str]:
-    """Associates the seconds elapsed between the start of exp. and read
-    finishing to the path for that read.
-
-    :param filepath: path to fast5 file.
-
-    :returns tuple representing the time in seconds and the path
-        to the file.
-
-    """
-    timestamp = calculate_timestamp(extract_time_fields(filepath))
-    return timestamp, filepath
+    return experiment_start + finish
 
 
 def scantree(path: str) -> Generator:
@@ -85,49 +74,55 @@ def scantree(path: str) -> Generator:
             yield entry
 
 
-def generate_ordered_list(reads_dir: str,
-                          fail=True) -> List[Tuple[float, str]]:
-    """Returns a list that is sorted in ascending order by time.
-    All timepoints are relative to the first entry which is time 0.
+def gather_files_and_times(reads_dir: str) -> List[Tuple[float, str]]:
+    """Walks down the read directory and gathers the time information for each
+    fast5 read.
 
     :param reads_dir: Path to directory holding fast5 reads.
-    :param fail: Whether to transfer files from the fail folder too.
-
-    :returns sorted_centred_staging_list (list[tuple(float, str)]): A list of
-    tuples of time and path to file.
+    :return: A list of tuples where trhe first element is the timestamp and the
+    second element is the file path for the read asscoiated with it.
 
     """
-
-    def _centre(sorted_list):
-        """function to make all times relative to first time which is 0."""
-        centred_map = map(lambda x: (float(x[0] + (0 - sorted_list[0][0])),
-                                     x[1]), sorted_list)
-        return np.array(list(centred_map))
-
     staging_list = []
-    files_not_processed = []
 
     for root, dirs, files in os.walk(reads_dir):
-        if dirs and not fail:  # only pass folder
-            dirs[:] = [d for d in dirs if d not in ["fail"]]
         for i, filename in enumerate(files):
             if filename.endswith(".fast5"):
                 filepath = os.path.join(root, filename)
                 try:
-                    staging_list.append(associate_time(filepath))
-                except IOError as e:
+                    timestamp = calculate_timestamp(filepath)
+                    staging_list.append((timestamp, filepath))
+                except IOError as err:
                     # some fast5 files can be corrupted
-                    files_not_processed.append((filepath, e))
+                    sys.stderr.write("{} not processed. Error "
+                                     "encountered: {}".format(filepath, err))
             perc = round(float(i) / len(files) * 100, 1)
-            print(">>> {0}% of the files processed in {1} directory...\t\t\t".format(perc, root.split("/")[-1]), end='\r')
+            print(
+                ">>> {0}% of the files processed in {1} directory...\t\t\t".format(
+                    perc, root.split("/")[-1]), end='\r')
             sys.stdout.flush()
     print("\nAll files processed.")
 
-    # centre and sort the list so the first entry is time 0
-    sorted_centred_staging_list = _centre(sorted(staging_list))
+    return staging_list
 
-    if files_not_processed:
-        write_failed_files(files_not_processed)
+
+def generate_ordered_list(reads_dir: str) -> List[Tuple[float, str]]:
+    """Returns a list that is sorted in ascending order by time.
+    All timepoints are relative to the first entry which is time 0.
+
+    :param reads_dir: Path to directory holding fast5 reads.
+
+    :returns sorted_centred_staging_list: A list of tuples of time and path to
+    file.
+
+    """
+    staging_list = gather_files_and_times(reads_dir)
+    staging_list.sort()  # todo: benchmarking other sorting methods
+
+    # make the first read "time 0" and all others relative to that
+    start = staging_list[0][0]
+    sorted_centred_staging_list = [(timestamp + (0 - start), filepath)
+                                   for (timestamp, filepath) in staging_list]
 
     return sorted_centred_staging_list
 
@@ -209,7 +204,7 @@ def check_positive(val):
 
 def main(args):
     if args.input_dir:
-        centred_list = generate_ordered_list(args.input_dir, args.fail)
+        centred_list = generate_ordered_list(args.input_dir)
         np.save('file_order.npy', centred_list)
     else:
         centred_list = open_pickle(args.input_pickle)
