@@ -1,34 +1,16 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 """Tests for `taeper` package."""
-
-
 import unittest
-from click.testing import CliRunner
-
 from taeper import taeper
-from taeper import cli
 
 
-class TestTaeper(unittest.TestCase):
+class TestZuluToEpochTime(unittest.TestCase):
     """Tests for `taeper` package."""
 
-    def setUp(self):
+    def test_ExampleFromRead_CorrectTimeInSeconds(self):
         """Set up test fixtures, if any."""
+        zulu_time = "2018-01-03T16:45:30Z"
+        result = taeper._zulu_to_epoch_time(zulu_time)
+        expected = 1514997930.0
+        self.assertEqual(result, expected)
 
-    def tearDown(self):
-        """Tear down test fixtures, if any."""
 
-    def test_000_something(self):
-        """Test something."""
-
-    def test_command_line_interface(self):
-        """Test the CLI."""
-        runner = CliRunner()
-        result = runner.invoke(cli.main)
-        assert result.exit_code == 0
-        assert 'taeper.cli.main' in result.output
-        help_result = runner.invoke(cli.main, ['--help'])
-        assert help_result.exit_code == 0
-        assert '--help  Show this message and exit.' in help_result.output
