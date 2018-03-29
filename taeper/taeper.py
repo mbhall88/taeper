@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
-"""Main module."""
 from __future__ import print_function, division
-from ont_fast5_api import fast5_file as Fast5
+import warnings
 import numpy as np
 import os
 import sys
@@ -13,17 +10,16 @@ from datetime import datetime
 import pickle
 from typing import Tuple, Generator, List
 
+# suppress annoying warning coming from this libraries use of h5py
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    from ont_fast5_api import fast5_file as fast5
 
-try:
-    from os import scandir
-except ImportError:
-    from scandir import scandir
 
-
-def _zulu_to_epoch_time(time: str) -> float:
+def _zulu_to_epoch_time(zulu_time: str) -> float:
     """Auxiliary function to parse Zulu time into epoch time"""
     epoch = datetime(1970, 1, 1)
-    time_as_date = datetime.strptime(time, "%Y-%m-%dT%H:%M:%SZ")
+    time_as_date = datetime.strptime(zulu_time, "%Y-%m-%dT%H:%M:%SZ")
     return (time_as_date - epoch).total_seconds()
 
 
@@ -37,8 +33,8 @@ def extract_time_fields(filepath: str) -> dict:
     channel.
 
     """
-    fast5_info = Fast5.Fast5Info(filepath)
-    fast5_file = Fast5.Fast5File(filepath)
+    fast5_info = fast5.Fast5Info(filepath)
+    fast5_file = fast5.Fast5File(filepath)
     exp_start_time = fast5_file.get_tracking_id()['exp_start_time']
     sampling_rate = float(fast5_file.get_channel_info()['sampling_rate'])
 
@@ -81,7 +77,7 @@ def associate_time(filepath: str) -> Tuple[float, str]:
 
 def scantree(path: str) -> Generator:
     """Recursively yield DirEntry objects for given directory."""
-    for entry in scandir(path):
+    for entry in os.scandir(path):
         if entry.is_dir(follow_symlinks=False):
             for dir_entry in scantree(entry.path):
                 yield dir_entry
@@ -101,6 +97,7 @@ def generate_ordered_list(reads_dir: str,
     tuples of time and path to file.
 
     """
+
     def _centre(sorted_list):
         """function to make all times relative to first time which is 0."""
         centred_map = map(lambda x: (float(x[0] + (0 - sorted_list[0][0])),
@@ -109,7 +106,6 @@ def generate_ordered_list(reads_dir: str,
 
     staging_list = []
     files_not_processed = []
-    counter = 0
 
     for root, dirs, files in os.walk(reads_dir):
         if dirs and not fail:  # only pass folder
@@ -123,8 +119,7 @@ def generate_ordered_list(reads_dir: str,
                     # some fast5 files can be corrupted
                     files_not_processed.append((filepath, e))
             perc = round(float(i) / len(files) * 100, 1)
-            print(">>> {0}% of the files processed in {1} directory...\t\t\t" \
-                  .format(perc, root.split("/")[-1]), end='\r')
+            print(">>> {0}% of the files processed in {1} directory...\t\t\t".format(perc, root.split("/")[-1]), end='\r')
             sys.stdout.flush()
     print("\nAll files processed.")
 
@@ -213,12 +208,9 @@ def check_positive(val):
 
 
 def main(args):
-    # example use of fast5 api
-    # f5 = Fast5.Fast5File(fname)
     if args.input_dir:
         centred_list = generate_ordered_list(args.input_dir, args.fail)
         np.save('file_order.npy', centred_list)
-        # write_pickle(centred_list)
     else:
         centred_list = open_pickle(args.input_pickle)
 
@@ -238,5 +230,3 @@ def main(args):
         print(">>> {}% of files transfered...".format(perc), end='\r')
         sys.stdout.flush()
     print("ALL READS DEPOSITED")
-
-
