@@ -15,7 +15,6 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from ont_fast5_api import fast5_file as fast5
 
-
 EXTENSION = '.fast5'
 
 
@@ -236,7 +235,7 @@ def load_index(index_path: str) -> List[Tuple[float, str]]:
 
 
 def main(args):
-    if args.input_dir:
+    if args.input_dir:  # build index
         logging.info(" Building index...")
         index_list = generate_index(args.input_dir)
 
@@ -249,20 +248,23 @@ def main(args):
         if not args.no_index:  # save index
             np.save(args.dump_index, index_list)
             logging.info(" Index saved as: {}".format(args.dump_index))
-    else:
+    else:  # load index from file
         index_list = load_index(args.index)
 
     # if no output directory was given, stop here.
     if not args.output:
         return
 
-    # start copying of files
-    print("Starting transfer of files to {}".format(args.output_dir))
+    logging.info(" Starting transfer of {} files to {}".format(len(index_list),
+                                                               args.output))
 
-    # this will be subtracted from the time for each read
-    prev_time = 0
+    duration_secs = sum(delay for (delay, _) in index_list) / args.scale
+    duration_mins = round(duration_secs / 60, 2)
+
+    logging.info(" Simulation will take {} minutes".format(duration_mins))
+
+    # todo: add progress bar
     for i, (delay, filepath) in enumerate(index_list):
-        delay = float(delay)
         perc = round(float(i) / len(index_list) * 100, 1)
         read_deposit(delay, prev_time, filepath, args.output_dir, args.scale)
         prev_time = delay
