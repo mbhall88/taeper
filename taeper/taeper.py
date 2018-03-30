@@ -6,6 +6,7 @@ import sys
 import argparse
 import shutil
 import time
+import logging
 from datetime import datetime
 import pickle
 from typing import Tuple, Generator, List
@@ -14,6 +15,8 @@ from typing import Tuple, Generator, List
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from ont_fast5_api import fast5_file as fast5
+
+EXTENSION = '.fast5'
 
 
 def _zulu_to_epoch_time(zulu_time: str) -> float:
@@ -134,17 +137,6 @@ def generate_ordered_list(reads_dir: str) -> List[Tuple[float, str]]:
     return sorted_centred_staging_list
 
 
-def write_failed_files(files):
-    """
-
-    :param files:
-    """
-    with open('files_not_processed.txt', 'w') as fo:
-        fo.write("filepath\terror_message\n")
-        for entry in files:
-            fo.write("{0}\t{1}\n".format(entry[0], entry[1]))
-
-
 def write_pickle(xs):
     """Write a given list to file as a pickle."""
     pickle_path = "file_order.p"
@@ -209,9 +201,37 @@ def check_positive(val):
     return val
 
 
+def generate_index(input_dir):
+    """Returns a list that is sorted in ascending order by time.
+    All timepoints are relative to the first entry which is time 0.
+
+    :param input_dir: Path to directory holding fast5 reads.
+
+    :returns centred_list: A list of tuples of time and path to file.
+
+    """
+    fast5_paths = scantree(input_dir, EXTENSION)
+    paths_with_their_timestamps = []
+    for f5_path in fast5_paths:
+        try:
+            timestamp = calculate_timestamp(f5_path)
+            paths_with_their_timestamps.append([timestamp, f5_path])
+        except OSError as err:
+            logging.warning(" {} not processed. Error "
+                            "encountered: {}\n".format(f5_path, err))
+
+    paths_with_their_timestamps.sort()
+
+    # make the first read "time 0" and all others relative to that
+    start = paths_with_their_timestamps[0][0]
+    centred_list = [(timestamp + (0 - start), filepath)
+                    for (timestamp, filepath) in paths_with_their_timestamps]
+    return centred_list
+
+
 def main(args):
     if args.input_dir:
-        centred_list = generate_ordered_list(args.input_dir)
+
         np.save('file_order.npy', centred_list)
     else:
         centred_list = open_pickle(args.input_pickle)

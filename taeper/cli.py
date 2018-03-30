@@ -3,7 +3,18 @@
 """Console script for taeper."""
 import sys
 import argparse
+import logging
 from taeper import taeper
+
+
+LOGGING_LEVELS = {
+    0: "NOTSET",
+    1: "CRITICAL",
+    2: "ERROR",
+    3: "WARNING",
+    4: "INFO",
+    5: "DEBUG"
+}
 
 
 def main():
@@ -37,7 +48,7 @@ def main():
         type=str, default=None)
 
     parser.add_argument(
-        "-s", "--scale",
+        "--scale",
         help="Amount to scale the timing by. i.e scale of 10 will \
                         deposit the reads 10x fatser than they were generated.\
                          (Default = 1.0)",
@@ -45,11 +56,22 @@ def main():
         default=1.0)
 
     parser.add_argument(
-        "-f", "--fail",
-        help="Don't transfer files in the 'fail' folder.",
-        action="store_false")
+        "--log_level",
+        help="Level of logging. 0 is none, 5 is for debugging. Default is 3 "
+             "which will report warnings, errors, and critical information.",
+        default=3,
+        type=int,
+        choices=range(6))
 
     args = parser.parse_args()
+
+    # setup logging
+    log_level = LOGGING_LEVELS.get(args.log_level)
+    logging.basicConfig(level=log_level,
+                        format='[%(asctime)s]:%(levelname)s:%(message)s',
+                        datefmt='%m/%d/%Y %I:%M:%S %p')
+
+    # it's business time
     taeper.main(args)
     return 0
 
