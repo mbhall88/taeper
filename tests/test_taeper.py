@@ -28,6 +28,15 @@ class TestExtractTimeFields(unittest.TestCase):
         self.assertDictEqual(result, expected)
 
 
+class TestCalculateTimestamp(unittest.TestCase):
+    """Make sure timestamps are calculated correctly"""
+    def test_Read8TimestampIsExactlyCorrect(self):
+        test_fast5 = 'tests/data/pass/read8.fast5'
+        result = taeper.calculate_timestamp(test_fast5)
+        expected = 1515004995.93975  # calculated by hand
+        self.assertEqual(result, expected)
+
+
 class TestScantree(unittest.TestCase):
     """Test scantree functiion"""
     def test_TestOnlyFast5FilesReturned_NoCornerCaseFile(self):
@@ -36,6 +45,7 @@ class TestScantree(unittest.TestCase):
         path = 'tests'
         result = list(taeper.scantree(path, ext))
         expected = [
+            'tests/data/fail/empty.fast5',
             'tests/data/fail/read0.fast5',
             'tests/data/fail/read6.fast5',
             'tests/data/pass/read1.fast5',

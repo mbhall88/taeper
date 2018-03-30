@@ -8,13 +8,13 @@ import shutil
 import time
 import logging
 from datetime import datetime
-import pickle
-from typing import Tuple, Generator, List
+from typing import Generator, List, Tuple
 
 # suppress annoying warning coming from this libraries use of h5py
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
     from ont_fast5_api import fast5_file as fast5
+
 
 EXTENSION = '.fast5'
 
@@ -51,11 +51,11 @@ def extract_time_fields(filepath: str) -> dict:
 
 
 def calculate_timestamp(filepath: str) -> float:
-    """Calculates the time when the read finished sequencing.
+    """Calculates the epoch time when the read finished sequencing.
 
     :param filepath: full path to fast5 file
 
-    :returns Seconds between experiment start and read finishing.
+    :returns Epoch time that the read finished sequencing
     """
     time_info = extract_time_fields(filepath)
     experiment_start = time_info['exp_start_time']
@@ -82,68 +82,6 @@ def scantree(path: str, ext: str) -> Generator:
                 yield nested_entry
         elif entry.is_file() and entry.name.endswith(ext):
             yield entry.path
-
-
-def gather_files_and_times(reads_dir: str) -> List[Tuple[float, str]]:
-    """Walks down the read directory and gathers the time information for each
-    fast5 read.
-
-    :param reads_dir: Path to directory holding fast5 reads.
-    :return: A list of tuples where trhe first element is the timestamp and the
-    second element is the file path for the read asscoiated with it.
-
-    """
-    staging_list = []
-
-    for root, dirs, files in os.walk(reads_dir):
-        for i, filename in enumerate(files):
-            if filename.endswith(".fast5"):
-                filepath = os.path.join(root, filename)
-                try:
-                    timestamp = calculate_timestamp(filepath)
-                    staging_list.append((timestamp, filepath))
-                except IOError as err:
-                    # some fast5 files can be corrupted
-                    sys.stderr.write("{} not processed. Error "
-                                     "encountered: {}".format(filepath, err))
-            perc = round(float(i) / len(files) * 100, 1)
-            print(
-                ">>> {0}% of the files processed in {1} directory...\t\t\t".format(
-                    perc, root.split("/")[-1]), end='\r')
-            sys.stdout.flush()
-    print("\nAll files processed.")
-
-    return staging_list
-
-
-def generate_ordered_list(reads_dir: str) -> List[Tuple[float, str]]:
-    """Returns a list that is sorted in ascending order by time.
-    All timepoints are relative to the first entry which is time 0.
-
-    :param reads_dir: Path to directory holding fast5 reads.
-
-    :returns sorted_centred_staging_list: A list of tuples of time and path to
-    file.
-
-    """
-    staging_list = gather_files_and_times(reads_dir)
-    staging_list.sort()  # todo: benchmarking other sorting methods
-
-    # make the first read "time 0" and all others relative to that
-    start = staging_list[0][0]
-    sorted_centred_staging_list = [(timestamp + (0 - start), filepath)
-                                   for (timestamp, filepath) in staging_list]
-
-    return sorted_centred_staging_list
-
-
-def write_pickle(xs):
-    """Write a given list to file as a pickle."""
-    pickle_path = "file_order.p"
-
-    # write the ordered list to a pickled file incase order is required later
-    with open(pickle_path, 'w') as fp:
-        pickle.dump(xs, fp)
 
 
 def read_deposit(t, prev, file_, output_dir, scale):
@@ -187,12 +125,6 @@ def read_deposit(t, prev, file_, output_dir, scale):
             shutil.copy2(file_, output_dir)
 
 
-def open_pickle(file_):
-    """Open a pickle file and load the list contained within."""
-    with open(file_, 'rb') as fp:
-        return pickle.load(fp)
-
-
 def check_positive(val):
     val = float(val)
     if not val > 0:
@@ -201,13 +133,13 @@ def check_positive(val):
     return val
 
 
-def generate_index(input_dir):
+def generate_index(input_dir: str) -> List[Tuple[float, str]]:
     """Returns a list that is sorted in ascending order by time.
     All timepoints are relative to the first entry which is time 0.
 
     :param input_dir: Path to directory holding fast5 reads.
 
-    :returns centred_list: A list of tuples of time and path to file.
+    :returns centred_list: A list of lists of time and path to file.
 
     """
     fast5_paths = scantree(input_dir, EXTENSION)
@@ -215,27 +147,32 @@ def generate_index(input_dir):
     for f5_path in fast5_paths:
         try:
             timestamp = calculate_timestamp(f5_path)
-            paths_with_their_timestamps.append([timestamp, f5_path])
+            time_path_pair = [timestamp, f5_path]
+            logging.debug(time_path_pair)
+            paths_with_their_timestamps.append(time_path_pair)
         except OSError as err:
             logging.warning(" {} not processed. Error "
                             "encountered: {}\n".format(f5_path, err))
 
+    # todo: benchmark other sorting algorithms
     paths_with_their_timestamps.sort()
 
+    # unzip the list in order to use numpy ediff1d method
+    timestamps, paths = zip(*paths_with_their_timestamps)
     # make the first read "time 0" and all others relative to that
-    start = paths_with_their_timestamps[0][0]
-    centred_list = [(timestamp + (0 - start), filepath)
-                    for (timestamp, filepath) in paths_with_their_timestamps]
-    return centred_list
+    zero_centered_times = np.ediff1d(timestamps, to_begin=0)
+    # zip times back with paths
+    return list(zip(zero_centered_times.round(decimals=3), paths))
+   
 
 
 def main(args):
     if args.input_dir:
-
-        np.save('file_order.npy', centred_list)
+        centred_list = generate_index(args.input_dir)
+        # np.save('file_order.npy', centred_list)
     else:
-        centred_list = open_pickle(args.input_pickle)
-
+        # centred_list = open_pickle(args.input_pickle)
+        pass
     # if no output directory was given, stop here.
     if not args.output_dir: return
 
