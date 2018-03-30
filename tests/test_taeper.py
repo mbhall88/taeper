@@ -30,9 +30,11 @@ class TestExtractTimeFields(unittest.TestCase):
 
 class TestScantree(unittest.TestCase):
     """Test scantree functiion"""
-    def test_TestData_FailReadsFollowedByPass(self):
+    def test_TestOnlyFast5FilesReturned_NoCornerCaseFile(self):
         """Test on tests/data directory"""
-        result = [direntry.path for direntry in taeper.scantree('tests/data')]
+        ext = '.fast5'
+        path = 'tests'
+        result = list(taeper.scantree(path, ext))
         expected = [
             'tests/data/fail/read0.fast5',
             'tests/data/fail/read6.fast5',
@@ -45,5 +47,14 @@ class TestScantree(unittest.TestCase):
             'tests/data/pass/read8.fast5',
             'tests/data/pass/read9.fast5'
             ]
+        for x, y in zip(expected, result):
+            self.assertEqual(x, y)
+
+    def test_TestCaseExtension_ReturnOnlyCornerCase(self):
+        """Test for only corner case"""
+        ext = '.case'
+        path = 'tests'
+        result = list(taeper.scantree(path, ext))
+        expected = ['tests/data/corner.case', 'tests/data/fail/corner.case']
         for x, y in zip(expected, result):
             self.assertEqual(x, y)

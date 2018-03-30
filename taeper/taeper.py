@@ -64,14 +64,21 @@ def calculate_timestamp(filepath: str) -> float:
     return experiment_start + finish
 
 
-def scantree(path: str) -> Generator:
-    """Recursively yield DirEntry objects for given directory."""
+def scantree(path: str, ext: str) -> Generator:
+    """Recursively scans a directory and returns file paths ending in a given
+    extension.
+
+    :param path: Directory to scan.
+    :param ext: Yield files with this extension.
+
+    :returns Yields path to each file ending in extension.
+    """
     for entry in os.scandir(path):
         if entry.is_dir(follow_symlinks=False):
-            for dir_entry in scantree(entry.path):
-                yield dir_entry
-        else:
-            yield entry
+            for nested_entry in scantree(entry.path, ext):
+                yield nested_entry
+        elif entry.is_file() and entry.name.endswith(ext):
+            yield entry.path
 
 
 def gather_files_and_times(reads_dir: str) -> List[Tuple[float, str]]:
