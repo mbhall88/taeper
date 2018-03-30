@@ -6,7 +6,6 @@ import argparse
 import logging
 from taeper import taeper
 
-
 LOGGING_LEVELS = {
     0: "NOTSET",
     1: "CRITICAL",
@@ -20,11 +19,11 @@ LOGGING_LEVELS = {
 def main():
     """Console script for taeper."""
     parser = argparse.ArgumentParser(
-        description="Simulate the real-time depositing of Nanopore \
-                        reads into a given folder, conserving the order they \
-                        were processed during sequencing. If pass and fail \
-                        folders do not exist in output_dir they will be created \
-                        if detected in the file path for the fast5 file.")
+        description="""Simulate the real-time depositing of Nanopore 
+                    reads into a given folder, conserving the order they 
+                    were processed during sequencing. If pass and fail 
+                    folders do not exist in output_dir they will be created 
+                    if detected in the file path for the fast5 file.""")
 
     group = parser.add_mutually_exclusive_group(required=True)
 
@@ -34,18 +33,17 @@ def main():
         type=str)
 
     group.add_argument(
-        "-p", "--input_pickle",
-        help="Copy files based on a previously obtained pickle file. \
-                        The pickle file should have been created by this program \
-                        previously. Useful if program needs to be run muliple \
-                        times for the same sample.",
+        "--index",
+        help="Provide a prebuilt index file to skip indexing. Be aware that "
+             "paths within an index file are relative to the current working "
+             "directory when they were built.",
         type=str)
 
     parser.add_argument(
-        "-o", "--output_dir",
-        help="Directory to copy the files to. If not specified, will \
-                        generate the pickle file only. (Default = None)",
-        type=str, default=None)
+        "-o", "--output",
+        help="Directory to copy the files to. If not specified, will "
+             "generate the index file only.",
+        type=str)
 
     parser.add_argument(
         "--scale",
@@ -56,10 +54,26 @@ def main():
         default=1.0)
 
     parser.add_argument(
+        "-d", "--dump_index",
+        help="Path to save index as. Default is 'taeper_index.npy' in current "
+             "working directory. Note: Paths in the index are relative to the "
+             "current working directory.",
+        default='taeper_index.npy',
+        type=str)
+
+    parser.add_argument(
+        "--no_index",
+        help="Dont write the index list to file. This will mean it needs "
+             "regenerating for this dataset on each run.",
+        action='store_true'
+    )
+
+    parser.add_argument(
         "--log_level",
-        help="Level of logging. 0 is none, 5 is for debugging. Default is 3 "
-             "which will report warnings, errors, and critical information.",
-        default=3,
+        help="Level of logging. 0 is none, 5 is for debugging. Default is 4 "
+             "which will report info, warnings, errors, and critical "
+             "information.",
+        default=4,
         type=int,
         choices=range(6))
 

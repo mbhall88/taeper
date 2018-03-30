@@ -177,7 +177,7 @@ def filter_list(unfiltered_list: List) -> List:
     return filtered_list
 
 
-def centre_list(uncentred_list: List[List]) -> List[Tuple]:
+def centre_list(uncentred_list: List[List]) -> List[Tuple[float, str]]:
     """Takes a list of lists and centres is on zero. That is each element is
     turned into the difference between it and the previous element.
 
@@ -201,8 +201,9 @@ def generate_index(input_dir: str) -> List[Tuple[float, str]]:
 
     :param input_dir: Path to directory holding fast5 reads.
 
-    :returns centred_list: A list of lists of time and path to file.
-
+    :returns centred_list: List of tuples with first element being the time
+    delay relative to the previous and second element being the path to the
+    file.
     """
     fast5_paths = scantree(input_dir, EXTENSION)
     paths_with_their_timestamps = [get_timestamp_for_path(filepath)
@@ -222,18 +223,38 @@ def generate_index(input_dir: str) -> List[Tuple[float, str]]:
     return zero_centred_list
 
 
+def load_index(index_path: str) -> List[Tuple[float, str]]:
+    """Load in the index file and get into required format.
+
+    :param index_path: path to index
+    :return: List of tuples with first element being the time delay relative
+    to the previous and second element being the path to the file.
+    """
+    index_list = np.load(index_path)
+    formatted_list = [(float(delay), path) for (delay, path) in index_list]
+    return formatted_list
+
+
 def main(args):
     if args.input_dir:
+        logging.info(" Building index...")
         index_list = generate_index(args.input_dir)
+
         if not index_list:  # list is empty
             logging.error(" Empty index. Exiting...")
             return
-        # np.save('file_order.npy', centred_list)
+
+        logging.info(" Index built!")
+
+        if not args.no_index:  # save index
+            np.save(args.dump_index, index_list)
+            logging.info(" Index saved as: {}".format(args.dump_index))
     else:
-        # centred_list = open_pickle(args.input_pickle)
-        pass
+        index_list = load_index(args.index)
+
     # if no output directory was given, stop here.
-    if not args.output_dir: return
+    if not args.output:
+        return
 
     # start copying of files
     print("Starting transfer of files to {}".format(args.output_dir))

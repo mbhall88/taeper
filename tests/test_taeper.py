@@ -157,3 +157,24 @@ class TestGenerateIndex(unittest.TestCase):
             (0.235, 'tests/data/pass/read4.fast5')
         ]
         self.assertListEqual(result, expected)
+
+
+class TestLoadIndex(unittest.TestCase):
+    """Test the loading of an index file"""
+    def test_LoadIndex_SameAsGeneratedIndex(self):
+        test_index = 'tests/data/taeper_index.npy'
+        result = taeper.load_index(test_index)
+        expected = [
+            (0.0, 'tests/data/pass/random.fast5'),
+            (24839288.405, 'tests/data/pass/read7.fast5'),
+            (7.476, 'tests/data/pass/read9.fast5'),
+            (1.327, 'tests/data/pass/read8.fast5'),
+            (6.065, 'tests/data/pass/read3.fast5'),
+            (18.221, 'tests/data/pass/read2.fast5'),
+            (34.035, 'tests/data/fail/read6.fast5'),
+            (3.294, 'tests/data/pass/read1.fast5'),
+            (0.126, 'tests/data/pass/read5.fast5'),
+            (8.73, 'tests/data/fail/read0.fast5'),
+            (0.235, 'tests/data/pass/read4.fast5')
+        ]
+        self.assertListEqual(result, expected)
