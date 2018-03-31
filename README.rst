@@ -39,63 +39,104 @@ To install, simply run
 Usage
 ======
 
-For help, just run ``python ./rtSimReadDeposit.py -h``
+``taeper`` is designed to simulate the order and timing of fast5 files that
+were produced in a minION run. You give it an input directory and it will gather
+the names of all the fast5 files under that directory (including sub-directories).
+It gathers information about the time when each read finished sequencing and
+creates a sorted index of all the files. In this index the first file was the first
+one sequenced and so on. Attached to each file path is a delay time, ``t`` in seconds.
+This specifies that that read completed sequencing ``t`` seconds after the one
+before it. In this way ``taeper`` can rerun what the experiment looked like in
+terms of the depositing of fast5 files. It then moves those files into a specified
+output directory and will recreate any subdirectory structures (e.g pass or fail
+folders).
 
-Example usage
-``python ./rtSimReadDeposit.py -i /path/to/fast5/files -o /path/to/destination -s 100``
+.. code-block:: bash
 
-The above example will simulate at 100x the speed of the actual
-experimet.
+    taeper --input_dir path/to/reads --output some/place
 
-It is also very common that you will want to simulate the experiment
-multiple times for the same samples. As the building of the index list
-is the longest part of the process, the first the time the above example
-is run, it will save a file called ``file_order.p`` into the destination
-directory. This is a python pickle file and is effectively a list sorted
-in order of first file to be deposited to the last. Each element in the
-list is a tuple ``(time, filepath)`` with time being the number of
-seconds after the initial file that the file was produced.
+This will copy all fast5 files in ``path/to/reads`` to ``some/place`` in the
+exact same timing as they were produced.
 
-So to speed things up, if you have the pickle file already you can
-simulate the experiment from the example above again by running
-``python ./rtSimReadDeposit.py -p /path/to/pickle/file -o /path/to/destination -s 100``
+In reality though you probably dont want to wait the full length of time that
+would take. In that case you can use the scale option.
 
-Any files that cause an ``IOError``, such as corrupt files (which do
-happen), will be written to a text file with the file path and
-associated error message.
+.. code-block:: bash
 
-If you want to generate the pickle file and not start the copying of
-files you just run the command without the ``-o`` and ``-s`` flags.
+    taeper --input_dir path/to/reads --output some/place --scale 100
 
-To load the pickle file into Python for some other use you can use the
-following example:
+This will rerun the experiment 100 times faster.
 
-.. code:: python
+Indexing is the longest step of the process and therefore, by default, an index
+file of the file order with the time delays is stored in a file called ``taeper_index.npy``.
+Keep in mind that the file paths in the index are relative to the working directory
+it was generated in.
 
-    def get_pickle(file_):
-        with open(file_, 'rb') as fp:
-            return pickle.load(fp)
-    xs = get_pickle(pickle_file) # list is now stored in xs
+If you would just like to index but not copy you can do
 
-**NB:** this program is still under very active development so make sure
-you ``pull`` from the clone regularly to keep up-to-date and *PLEASE*
-raise any issues that you come across.
+.. code-block:: bash
 
-Big disclaimer
+    taeper --input_dir path/to/reads --dump_index experiment_index.npy
+
+You just omit the output directory. ``--dump_index`` also allows you to specify a
+name other than the default for the index.
+
+If you already have an index file and you would like to rerun the experiment then
+you can provide that index and skip to the copying
+
+.. code-block:: bash
+
+    taeper --input_dir path/to/reads --output some/place --index experiment_index.npy --scale 100
+
+**Full usage**
+
+.. code-block:: bash
+
+    taeper --help
+    usage: taeper [-h] -i INPUT_DIR [--index INDEX] [-o OUTPUT] [--scale SCALE]
+              [-d DUMP_INDEX] [--no_index] [--log_level {0,1,2,3,4,5}]
+              [--no_progress_bar]
+
+    Simulate the real-time depositing of Nanopore reads into a given folder,
+    conserving the order they were processed during sequencing. If pass and fail
+    folders do not exist in output_dir they will be created if detected in the
+    file path for the fast5 file.
+
+    optional arguments:
+      -h, --help            show this help message and exit
+      -i INPUT_DIR, --input_dir INPUT_DIR
+                            Directory where files are located.
+      --index INDEX         Provide a prebuilt index file to skip indexing. Be
+                            aware that paths within an index file are relative to
+                            the current working directory when they were built.
+      -o OUTPUT, --output OUTPUT
+                            Directory to copy the files to. If not specified, will
+                            generate the index file only.
+      --scale SCALE         Amount to scale the timing by. i.e scale of 10 will
+                            deposit the reads 10x fatser than they were generated.
+                            (Default = 1.0)
+      -d DUMP_INDEX, --dump_index DUMP_INDEX
+                            Path to save index as. Default is 'taeper_index.npy'
+                            in current working directory. Note: Paths in the index
+                            are relative to the current working directory.
+      --no_index            Dont write the index list to file. This will mean it
+                            needs regenerating for this dataset on each run.
+      --log_level {0,1,2,3,4,5}
+                            Level of logging. 0 is none, 5 is for debugging.
+                            Default is 4 which will report info, warnings, errors,
+                            and critical information.
+      --no_progress_bar     Do not display progress bar.
+
+
+Disclaimer
 ~~~~~~~~~~~~~~
 
-For anyone who has worked with ``fast5`` file structure before I am sure
-I don’t have to explain to you how volatile this structure is! In other
-words: **in now way do I guarentee this will work on all fast5 files.**
-I have tested it out with a few different versions of files produced by
-MinKnow (should work with any MinKnow version from arounf post-R9
-chemistry), but trying to test *all* would be wasting time I could be
-putting towards something enjoyable. If it doesn’t work for your files
-feel free to fork this and tweak it to suite your needs. Or send me some
-sample ``fast5`` files and if I have time I will add in some support for
-it…..maybe….
+The ``fast5`` file structure has changed a bit over time and as such not all
+files will work. Although, I have tested this program with most recent forms and
+it works fine. A logging warning will show up on the console if ``taeper`` is
+unable to read a file or determine it's finish time.
 
-
+-----------
 
 * Free software: MIT license
 * Documentation: https://taeper.readthedocs.io.
