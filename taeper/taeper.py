@@ -1,12 +1,12 @@
-from __future__ import print_function, division
+"""Command line program to simulate the rerunning of a nanopore experiment."""
 import warnings
 import numpy as np
 import os
 import sys
-import argparse
 import shutil
 import time
 import logging
+import pathlib
 from datetime import datetime
 from typing import Generator, List, Tuple
 
@@ -96,53 +96,41 @@ def scantree(path: str, ext: str) -> Generator:
             yield entry.path
 
 
-def read_deposit(t, prev, file_, output_dir, scale):
-    """Copies a file to a given directory with a delay.
+def generate_output_filepath(filepath: str, output_dir: str,
+                             input_dir: str) -> pathlib.Path:
+    """Creates the output path to write a file to, keeping the directory
+    structure of the input directory.
 
-    Args:
-        t (float): Number of seconds to delay copy by.
-        prev (float): Previous read's t variable. Subtract from current read
-        to get pause time.
-        file_ (str): Path to file to be copied.
-        output_dir (str): Directory to copy file to.
-        scale (float): Scale the delay time by a given amount.
-
-    Returns:
-        None: Copies the file but returns nothing.
-
+    :param filepath:  path to input file
+    :param output_dir: path file is being output to
+    :param input_dir: directory file is within
+    :return: the output directory joined with the input filepath, minus the
+    input directory.
     """
-    # pause to simulate real time. scale pause accordingly
-    time.sleep((t - prev) / scale)
+    filepath = pathlib.Path(filepath)
+    output_dir = pathlib.Path(output_dir)
+    input_dir = pathlib.Path(input_dir)
 
-    # copy file to designated folder
-    if "/fail/" in file_.lower():
-        fail_dir = os.path.join(output_dir, "fail/")
-        if not os.path.exists(fail_dir):
-            os.makedirs(fail_dir)
-        shutil.copy2(file_, fail_dir)
-    elif "/pass/" in file_.lower():
-        pass_dir = os.path.join(output_dir, "pass/")
-        if not os.path.exists(pass_dir):
-            os.makedirs(pass_dir)
-        shutil.copy2(file_, pass_dir)
-    else:
-        try:
-            file_num = int(file_.split("/")[-2])
-            dir_ = file_.split("/")[-2]
-            this_dir = os.path.join(output_dir, dir_)
-            if not os.path.exists(this_dir):
-                os.makedirs(this_dir)
-            shutil.copy2(file_, this_dir)
-        except ValueError as e:
-            shutil.copy2(file_, output_dir)
+    file_parts = list(filepath.parts)
+    # remove the shared parts between filepath and input_dir
+    for part in input_dir.parts:
+        file_parts.remove(part)
+    output_filepath = output_dir.joinpath(*file_parts)
+
+    return output_filepath
 
 
-def check_positive(val):
-    val = float(val)
-    if not val > 0:
-        raise argparse.ArgumentTypeError("Scale must be a positive value, \
-                greater than 0. Value given was {0}.".format(val))
-    return val
+def read_deposit(input_filepath: pathlib.Path, output_filepath: pathlib.Path):
+    """Copies the given input file to the output path. If the directory to
+    copy to does not exist, it is created, along with any missing parents.
+
+    :param input_filepath: file to copy
+    :param output_filepath: path to cop file to.
+    """
+    if not output_filepath.parent.exists():
+        output_filepath.parent.mkdir(parents=True, exist_ok=True)
+
+    shutil.copy2(input_filepath, output_filepath)
 
 
 def get_timestamp_for_path(filepath: str) -> List:
@@ -234,8 +222,9 @@ def load_index(index_path: str) -> List[Tuple[float, str]]:
     return formatted_list
 
 
-def main(args):
-    if args.input_dir:  # build index
+def index(args):
+    """Handles the index step of the program."""
+    if not args.index:  # build index
         logging.info(" Building index...")
         index_list = generate_index(args.input_dir)
 
@@ -248,13 +237,41 @@ def main(args):
         if not args.no_index:  # save index
             np.save(args.dump_index, index_list)
             logging.info(" Index saved as: {}".format(args.dump_index))
+
+        return index_list
     else:  # load index from file
         index_list = load_index(args.index)
+        return index_list
 
-    # if no output directory was given, stop here.
-    if not args.output:
-        return
 
+def update_progress(progress: float):
+    """Creates and updates a progress bar.
+    Recognition to https://stackoverflow.com/a/15860757/5299417
+
+    :param progress: Value between 0 and 1 (percent as decimal)
+    """
+    bar_length = 40  # Modify this to change the length of the progress bar
+    status = ""
+    if isinstance(progress, int):
+        progress = float(progress)
+    if not isinstance(progress, float):
+        progress = 0
+        status = "error: progress var must be float\r\n"
+    if progress < 0:
+        progress = 0
+        status = "Halt...\r\n"
+    if progress >= 1:
+        progress = 1
+        status = "Done...\r\n"
+    block = int(round(bar_length * progress))
+    text = "\rPercent: [{0}] {1}% {2}".format(
+        "#" * block + "-" * (bar_length - block), progress * 100, status)
+    sys.stdout.write(text)
+    sys.stdout.flush()
+
+
+def simulate_read_generation(args, index_list):
+    """Handles the copy from input to output and the delays in between."""
     logging.info(" Starting transfer of {} files to {}".format(len(index_list),
                                                                args.output))
 
@@ -265,9 +282,27 @@ def main(args):
 
     # todo: add progress bar
     for i, (delay, filepath) in enumerate(index_list):
-        perc = round(float(i) / len(index_list) * 100, 1)
-        read_deposit(delay, prev_time, filepath, args.output_dir, args.scale)
-        prev_time = delay
-        print(">>> {}% of files transfered...".format(perc), end='\r')
-        sys.stdout.flush()
-    print("ALL READS DEPOSITED")
+        output_filepath = generate_output_filepath(filepath, args.output,
+                                                   args.input_dir)
+        # wait between copy
+        time.sleep(delay / args.scale)
+
+        read_deposit(filepath, output_filepath)
+
+        if not args.no_progress_bar:
+            update_progress(round(i / len(index_list), 4))
+
+    if not args.no_progress_bar:
+        update_progress(1.0)
+    logging.info("Simulation finished!")
+
+
+def main(args):
+    """Runs the indexing of the files and copying to destination."""
+    index_list = index(args)
+
+    # if no output directory was given, stop here.
+    if not args.output:
+        return
+
+    simulate_read_generation(args, index_list)

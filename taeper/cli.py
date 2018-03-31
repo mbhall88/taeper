@@ -16,8 +16,21 @@ LOGGING_LEVELS = {
 }
 
 
+def check_positive(value: str):
+    """Ensures the value given is a positive number.
+
+    :param value: A string of a number
+    :return: A positive float. Raises an error if value is not positive
+    """
+    fvalue = float(value)
+    if fvalue <= 0:
+        raise argparse.ArgumentTypeError(
+            "{} is an invalid positive float value".format(value))
+    return fvalue
+
+
 def main():
-    """Console script for taeper."""
+    """Generate the cli for taeper and pass args to main program."""
     parser = argparse.ArgumentParser(
         description="""Simulate the real-time depositing of Nanopore 
                     reads into a given folder, conserving the order they 
@@ -25,14 +38,13 @@ def main():
                     folders do not exist in output_dir they will be created 
                     if detected in the file path for the fast5 file.""")
 
-    group = parser.add_mutually_exclusive_group(required=True)
-
-    group.add_argument(
+    parser.add_argument(
         "-i", "--input_dir",
         help="Directory where files are located.",
-        type=str)
+        type=str,
+        required=True)
 
-    group.add_argument(
+    parser.add_argument(
         "--index",
         help="Provide a prebuilt index file to skip indexing. Be aware that "
              "paths within an index file are relative to the current working "
@@ -50,7 +62,7 @@ def main():
         help="Amount to scale the timing by. i.e scale of 10 will \
                         deposit the reads 10x fatser than they were generated.\
                          (Default = 1.0)",
-        type=float,
+        type=check_positive,
         default=1.0)
 
     parser.add_argument(
@@ -77,6 +89,12 @@ def main():
         type=int,
         choices=range(6))
 
+    parser.add_argument(
+        "--no_progress_bar",
+        help="Do not display progress bar.",
+        action='store_true'
+    )
+
     args = parser.parse_args()
 
     # setup logging
@@ -91,4 +109,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())  # pragma: no cover
+    sys.exit(main())

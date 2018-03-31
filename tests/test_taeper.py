@@ -1,10 +1,15 @@
 """Tests for `taeper` package."""
 import unittest
+import pathlib
+import logging
 from taeper import taeper
+
+logging.disable(logging.CRITICAL)
 
 
 class TestZuluToEpochTime(unittest.TestCase):
     """Test Zulu to Epoch converter function."""
+
     def test_ExampleFromRead_CorrectTimeInSeconds(self):
         """Simple test case"""
         zulu_time = "2018-01-03T16:45:30Z"
@@ -15,6 +20,7 @@ class TestZuluToEpochTime(unittest.TestCase):
 
 class TestExtractTimeFields(unittest.TestCase):
     """Test function that extracts time info from fast5 files"""
+
     def test_Read9Fast5TestFile_CorrectFieldsExtracted(self):
         """Test fields in read9"""
         test_fast5 = 'tests/data/pass/read9.fast5'
@@ -36,6 +42,7 @@ class TestExtractTimeFields(unittest.TestCase):
 
 class TestCalculateTimestamp(unittest.TestCase):
     """Make sure timestamps are calculated correctly"""
+
     def test_Read8TimestampIsExactlyCorrect(self):
         test_fast5 = 'tests/data/pass/read8.fast5'
         result = taeper.calculate_timestamp(test_fast5)
@@ -51,6 +58,7 @@ class TestCalculateTimestamp(unittest.TestCase):
 
 class TestScantree(unittest.TestCase):
     """Test scantree functiion"""
+
     def test_TestOnlyFast5FilesReturned_NoCornerCaseFile(self):
         """Test on tests/data directory"""
         ext = '.fast5'
@@ -70,7 +78,7 @@ class TestScantree(unittest.TestCase):
             'tests/data/pass/read7.fast5',
             'tests/data/pass/read8.fast5',
             'tests/data/pass/read9.fast5'
-            ]
+        ]
         for x, y in zip(expected, result):
             self.assertEqual(x, y)
 
@@ -86,6 +94,7 @@ class TestScantree(unittest.TestCase):
 
 class TestFilterList(unittest.TestCase):
     """Test filter list function"""
+
     def test_ListWithNoNoneOrEmptyList_NoChange(self):
         xs = [1, 2, 3]
         result = taeper.filter_list(xs)
@@ -131,6 +140,7 @@ class TestFilterList(unittest.TestCase):
 
 class TestCentreList(unittest.TestCase):
     """Test centre list function"""
+
     def test_GeneralCase(self):
         xs = [[4, 'a'], [7, 'b'], [10, 'c']]
         result = taeper.centre_list(xs)
@@ -140,6 +150,7 @@ class TestCentreList(unittest.TestCase):
 
 class TestGenerateIndex(unittest.TestCase):
     """Test the function that generates the index"""
+
     def test_TestFast5Files(self):
         test_dir = 'tests/data'
         result = taeper.generate_index(test_dir)
@@ -161,6 +172,7 @@ class TestGenerateIndex(unittest.TestCase):
 
 class TestLoadIndex(unittest.TestCase):
     """Test the loading of an index file"""
+
     def test_LoadIndex_SameAsGeneratedIndex(self):
         test_index = 'tests/data/taeper_index.npy'
         result = taeper.load_index(test_index)
@@ -178,3 +190,25 @@ class TestLoadIndex(unittest.TestCase):
             (0.235, 'tests/data/pass/read4.fast5')
         ]
         self.assertListEqual(result, expected)
+
+
+class TestGenerateOutputFilepath(unittest.TestCase):
+    """Test generate_output_filepath function"""
+
+    def test_NoInputStructureToKeep_OutputPlusFilename(self):
+        filepath = 'tests/data/read.fast5'
+        input_dir = 'tests/data'
+        output_dir = 'tests/data/tmp'
+        result = taeper.generate_output_filepath(filepath, output_dir,
+                                                 input_dir)
+        expected = pathlib.Path('tests/data/tmp/read.fast5')
+        self.assertEqual(result, expected)
+
+    def test_InputStructureToKeep_OutputPlusFilenamePlusStructure(self):
+        filepath = 'tests/data/pass/read.fast5'
+        input_dir = 'tests/data'
+        output_dir = 'tests/data/tmp'
+        result = taeper.generate_output_filepath(filepath, output_dir,
+                                                 input_dir)
+        expected = pathlib.Path('tests/data/tmp/pass/read.fast5')
+        self.assertEqual(result, expected)
