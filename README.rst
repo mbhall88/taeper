@@ -1,7 +1,7 @@
 ======
 taeper
 ======
-
+Simulate repeating a nanopore experiment.
 
 .. image:: https://img.shields.io/pypi/v/taeper.svg
         :target: https://pypi.python.org/pypi/taeper
@@ -14,34 +14,30 @@ taeper
         :alt: Documentation Status
 
 
-
-
-Simulate repeating a nanopore experiment.
-
----
-
 This tool is designed for anyone developing tools and applications for
 real-time analysis of Oxford Nanopore sequencing data. The use is quite
-simple. Given a directory of ``fast5`` files, **A**, and a destination
-directory, **B**, this tool will copy the files from **A** to **B** in
+simple. Given a directory of ``fast5`` files, ``A``, and a destination
+directory, ``B``, this tool will copy the files from ``A`` to ``B`` in
 the same order and timing as they were deposited into the reads folder
-during the actual experiment.
+during the actual experiment. It will also maintain the current directory structure.
 
 I know what you’re thinking: “But who wants to hang around for 30 hours
 waiting for a simulation to finish?” Luckily there is an optional
-scaling factor that will speed up the process.
+scaling factor that will speed up the process (``--scale``).
 
-I am in the process of making this run on its own from the command line,
-but for now **you will need to following dependencies**:
+Installation
+=============
+This is a **python3 only** package.
 
--  `h5py <http://www.h5py.org/>`__ - ``pip install h5py``
--  `NumPy <http://www.numpy.org/>`__ - ``pip install numpy``
+To install, simply run
 
-Also, if you are using Python 2, you will need to
-``pip install scandir``
+.. code-block:: bash
+
+    pip3 install taeper
+    taeper --help
 
 Usage
------
+======
 
 For help, just run ``python ./rtSimReadDeposit.py -h``
 
