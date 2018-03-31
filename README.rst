@@ -9,10 +9,6 @@ Simulate repeating a nanopore experiment.
 .. image:: https://img.shields.io/travis/mbhall88/taeper.svg
         :target: https://travis-ci.org/mbhall88/taeper
 
-.. image:: https://readthedocs.org/projects/taeper/badge/?version=latest
-        :target: https://taeper.readthedocs.io/en/latest/?badge=latest
-        :alt: Documentation Status
-
 
 This tool is designed for anyone developing tools and applications for
 real-time analysis of Oxford Nanopore sequencing data. The use is quite
