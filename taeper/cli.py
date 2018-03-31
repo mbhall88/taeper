@@ -32,11 +32,11 @@ def check_positive(value: str):
 def main():
     """Generate the cli for taeper and pass args to main program."""
     parser = argparse.ArgumentParser(
-        description="""Simulate the real-time depositing of Nanopore 
-                    reads into a given folder, conserving the order they 
-                    were processed during sequencing. If pass and fail 
-                    folders do not exist in output_dir they will be created 
-                    if detected in the file path for the fast5 file.""")
+        description="Simulate the real-time depositing of Nanopore "
+                    "reads into a given folder, conserving the order they "
+                    "were processed during sequencing. If pass and fail "
+                    "folders do not exist in output_dir they will be created "
+                    "if detected in the file path for the fast5 file.")
 
     parser.add_argument(
         "-i", "--input_dir",
