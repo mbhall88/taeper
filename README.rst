@@ -135,7 +135,6 @@ unable to read a file or determine it's finish time.
 -----------
 
 * Free software: MIT license
-* Documentation: https://taeper.readthedocs.io.
 
 
 Credits
