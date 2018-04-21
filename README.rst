@@ -3,11 +3,15 @@ taeper
 ======
 Simulate repeating a nanopore experiment.
 
+        
 .. image:: https://img.shields.io/pypi/v/taeper.svg
         :target: https://pypi.python.org/pypi/taeper
 
 .. image:: https://img.shields.io/travis/mbhall88/taeper.svg
-        :target: https://travis-ci.org/mbhall88/taeper
+        :target: https://travis-ci.org/mbhall88/taeper        
+
+.. image:: https://img.shields.io/twitter/follow/mbhall88.svg?style=social&logo=twitter&label=Follow
+        :target: https://twitter.com/mbhall88
 
 
 This tool is designed for anyone developing tools and applications for
@@ -86,7 +90,7 @@ you can provide that index and skip to the copying
 
 **Full usage**
 
-.. code-block:: bash
+.. code-block::
 
     taeper --help
     usage: taeper [-h] -i INPUT_DIR [--index INDEX] [-o OUTPUT] [--scale SCALE]
